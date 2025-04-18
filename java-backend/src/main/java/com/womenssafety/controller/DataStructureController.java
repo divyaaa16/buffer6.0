@@ -6,6 +6,50 @@ import java.util.*;
 @RestController
 @RequestMapping("/api")
 public class DataStructureController {
+    // Lawyer data structure
+    static class Lawyer {
+        String name;
+        String specialization;
+        String location;
+        String phone;
+        String email;
+        public Lawyer(String name, String specialization, String location, String phone, String email) {
+            this.name = name;
+            this.specialization = specialization;
+            this.location = location;
+            this.phone = phone;
+            this.email = email;
+        }
+    }
+
+    // Hardcoded list of lawyers
+    private static final List<Lawyer> LAWYERS = Arrays.asList(
+        new Lawyer("Aditi Sharma", "harassment", "pune", "(555) 111-2222", "aditi.sharma@lawhelp.com"),
+        new Lawyer("Rahul Mehra", "domestic_violence", "mumbai", "(555) 333-4444", "rahul.mehra@legalfirm.com"),
+        new Lawyer("Priya Verma", "workplace_discrimination", "pune", "(555) 555-6666", "priya.verma@lawyer.com"),
+        new Lawyer("Sanjay Singh", "sexual_assault", "delhi", "(555) 777-8888", "sanjay.singh@justice.com"),
+        new Lawyer("Nisha Patel", "family_law", "pune", "(555) 999-0000", "nisha.patel@familylaw.com"),
+        new Lawyer("Arjun Rao", "restraining_orders", "mumbai", "(555) 222-3333", "arjun.rao@protection.com")
+    );
+
+    // REST endpoint to get lawyers by specialization and location
+    @GetMapping("/lawyers")
+    public List<Map<String, String>> getLawyers(@RequestParam String specialization, @RequestParam String location) {
+        List<Map<String, String>> result = new ArrayList<>();
+        for (Lawyer l : LAWYERS) {
+            if (l.specialization.equalsIgnoreCase(specialization) && l.location.equalsIgnoreCase(location)) {
+                Map<String, String> lawyerMap = new HashMap<>();
+                lawyerMap.put("name", l.name);
+                lawyerMap.put("specialization", l.specialization);
+                lawyerMap.put("location", l.location);
+                lawyerMap.put("phone", l.phone);
+                lawyerMap.put("email", l.email);
+                result.add(lawyerMap);
+            }
+        }
+        return result;
+    }
+
     // Stack for complaint history
     private final Stack<String> stack = new Stack<>();
     // Priority Queue for case prioritization

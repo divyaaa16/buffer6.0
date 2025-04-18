@@ -3,6 +3,14 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
+
+type Lawyer = {
+  name: string;
+  specialization: string;
+  location: string;
+  phone: string;
+  email: string;
+};
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -24,6 +32,24 @@ export type Message = {
 }
 
 export function ChatInterface() {
+  // ...
+  // Undo: Remove last prompt/response pair
+  const handleUndo = () => {
+    setMessages((prev) => {
+      if (prev.length <= 1) return prev; // Keep welcome message
+      // Remove last user+assistant pair, or just last if odd
+      const n = prev.length;
+      if (prev[n-1].role === "assistant" && prev[n-2]?.role === "user") {
+        return prev.slice(0, n-2);
+      } else {
+        return prev.slice(0, n-1);
+      }
+    });
+  };
+  // Delete: Remove by id
+  const handleDelete = (id: string) => {
+    setMessages((prev) => prev.filter(m => m.id !== id));
+  };
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -90,13 +116,13 @@ export function ChatInterface() {
       {/* Sidebar: Chat History (visible on md+) */}
       <div className="hidden md:block md:col-span-1">
         <ChatHistory messages={messages} onClearHistory={() => setMessages([
-  {
-    id: "welcome",
-    role: "assistant",
-    content: "Hello, I'm SafeGuard, your AI legal assistant. How can I help you today?",
-    timestamp: new Date(),
-  },
-])} />
+          {
+            id: "welcome",
+            role: "assistant",
+            content: "Hello, I'm SafeGuard, your AI legal assistant. How can I help you today?",
+            timestamp: new Date(),
+          },
+        ])} onDelete={handleDelete} />
       </div>
       {/* Feature Panel (mobile and up) */}
       <FeaturePanel onFeatureSelect={handleOpenModal} />
@@ -104,12 +130,15 @@ export function ChatInterface() {
       {/* Main Chat Area */}
       <div className="md:col-span-3 flex flex-col bg-white dark:bg-gray-900 rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-800">
         <ScrollArea className="flex-1 p-4">
-          <MessageArea messages={messages} isLoading={isLoading} />
+          <MessageArea messages={messages} isLoading={isLoading} onDelete={handleDelete} />
           <div ref={messagesEndRef} />
         </ScrollArea>
 
         <div className="p-4 border-t border-gray-200 dark:border-gray-800">
           <form onSubmit={handleSendMessage} className="flex space-x-2">
+            <Button type="button" variant="secondary" onClick={handleUndo} disabled={messages.length <= 1} className="mr-2">
+              Undo
+            </Button>
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -172,7 +201,7 @@ export function ChatInterface() {
       <LawyerConnectModal
         open={activeModal === "lawyer-connect"}
         onOpenChange={handleCloseModal}
-        onSubmit={(data) => {
+        onSubmit={async (data) => {
           setMessages((prev) => [
             ...prev,
             {
@@ -181,14 +210,83 @@ export function ChatInterface() {
               content: `I need to connect with a lawyer who specializes in ${data.specialization} in ${data.location}.`,
               timestamp: new Date(),
             },
-            {
-              id: (Date.now() + 1).toString(),
-              role: "assistant",
-              content: `I've found several lawyers in ${data.location} who specialize in ${data.specialization}:\n\n1. Jane Smith - Women's Rights Attorney\n   Phone: (555) 123-4567\n   Email: jane.smith@legalfirm.com\n   Specializes in: ${data.specialization}, Domestic Violence\n\n2. Robert Johnson - Civil Rights Lawyer\n   Phone: (555) 987-6543\n   Email: robert.j@lawoffices.com\n   Specializes in: ${data.specialization}, Workplace Discrimination\n\n3. Maria Garcia - Family Law Attorney\n   Phone: (555) 456-7890\n   Email: m.garcia@familylaw.com\n   Specializes in: ${data.specialization}, Restraining Orders\n\nWould you like me to help you prepare for your consultation with any of these lawyers?`,
-              timestamp: new Date(),
-            },
           ])
-          handleCloseModal()
+          setIsLoading(true)
+          // Hardcoded fallback lawyer data
+          const hardcodedLawyers = [
+            { name: "Aditi Sharma", specialization: "harassment", location: "pune", phone: "(555) 111-2222", email: "aditi.sharma@lawhelp.com" },
+            { name: "Rahul Mehra", specialization: "domestic_violence", location: "mumbai", phone: "(555) 333-4444", email: "rahul.mehra@legalfirm.com" },
+            { name: "Priya Verma", specialization: "workplace_discrimination", location: "pune", phone: "(555) 555-6666", email: "priya.verma@lawyer.com" },
+            { name: "Sanjay Singh", specialization: "sexual_assault", location: "delhi", phone: "(555) 777-8888", email: "sanjay.singh@justice.com" },
+            { name: "Nisha Patel", specialization: "family_law", location: "pune", phone: "(555) 999-0000", email: "nisha.patel@familylaw.com" },
+            { name: "Arjun Rao", specialization: "restraining_orders", location: "mumbai", phone: "(555) 222-3333", email: "arjun.rao@protection.com" },
+            { name: "Rohit Deshmukh", specialization: "workplace_discrimination", location: "mumbai", phone: "(555) 123-4567", email: "rohit.deshmukh@lawhelp.com" },
+          ];
+          try {
+            const response = await fetch(`/api/lawyers?specialization=${encodeURIComponent(data.specialization)}&location=${encodeURIComponent(data.location)}`)
+            let lawyers = [];
+            if (response.ok) {
+              lawyers = await response.json();
+            }
+            // If backend returns no results, use hardcoded fallback
+            if (!lawyers || lawyers.length === 0) {
+              lawyers = hardcodedLawyers.filter((l: Lawyer) =>
+                l.specialization === data.specialization && l.location.toLowerCase() === data.location.toLowerCase()
+              );
+              // If still no results, try matching either specialization or location
+              if (lawyers.length === 0) {
+                lawyers = hardcodedLawyers.filter((l: Lawyer) =>
+                  l.specialization === data.specialization || l.location.toLowerCase() === data.location.toLowerCase()
+                );
+              }
+            }
+            let content = "";
+            if (lawyers.length > 0) {
+              content = `I've found the following lawyers in ${data.location} who specialize in ${data.specialization}:\n\n` +
+                lawyers.map((l: Lawyer, idx: number) =>
+                  `${idx + 1}. ${l.name}\n   Phone: ${l.phone}\n   Email: ${l.email}\n   Specializes in: ${l.specialization}\n`
+                ).join("\n") +
+                "\nWould you like me to help you prepare for your consultation with any of these lawyers?";
+            } else {
+              content = `Sorry, I couldn't find any lawyers in ${data.location} who specialize in ${data.specialization}.`;
+            }
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                content,
+                timestamp: new Date(),
+              },
+            ]);
+          } catch (error) {
+            // On fetch error, use hardcoded fallback
+            const lawyers = hardcodedLawyers.filter((l: { name: string; specialization: string; location: string; phone: string; email: string }) =>
+              l.specialization === data.specialization && l.location.toLowerCase() === data.location.toLowerCase()
+            );
+            let content = "";
+            if (lawyers.length > 0) {
+              content = `I've found the following lawyers in ${data.location} who specialize in ${data.specialization}:\n\n` +
+                lawyers.map((l: Lawyer, idx: number) =>
+                  `${idx + 1}. ${l.name}\n   Phone: ${l.phone}\n   Email: ${l.email}\n   Specializes in: ${l.specialization}\n`
+                ).join("\n") +
+                "\nWould you like me to help you prepare for your consultation with any of these lawyers?";
+            } else {
+              content = `Sorry, I couldn't find any lawyers in ${data.location} who specialize in ${data.specialization}.`;
+            }
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: (Date.now() + 2).toString(),
+                role: "assistant",
+                content,
+                timestamp: new Date(),
+              },
+            ]);
+          } finally {
+            setIsLoading(false);
+            handleCloseModal();
+          }
         }}
       />
 

@@ -17,6 +17,10 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { AlertTriangleIcon } from "lucide-react"
+import { getAuth } from "firebase/auth"
+import { doc, setDoc } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import { toast } from "@/components/ui/use-toast"
 
 const formSchema = z.object({
   contact1Name: z.string().min(2, {
@@ -58,12 +62,19 @@ export function SosHelpModal({ open, onOpenChange, onSubmit }: SosHelpModalProps
     },
   })
 
-  const handleSubmit = (data: FormValues) => {
+  const handleSubmit = async (data: FormValues) => {
     setIsSubmitting(true)
-
-    // Simulate processing
-    setTimeout(() => {
-      onSubmit(data)
+    try {
+      const auth = getAuth()
+      const user = auth.currentUser
+      if (!user) throw new Error("You must be logged in to save SOS contacts.")
+      const sosDocRef = doc(db, "users", user.uid, "profile", "sosContacts")
+      await setDoc(sosDocRef, data)
+      toast({
+        title: "Contacts saved successfully!",
+        description: "Your SOS contacts have been saved to your profile.",
+      })
+      onSubmit(data) // Pass data up for immediate UI update if needed
       form.reset({
         contact1Name: "",
         contact1Phone: "",
@@ -71,29 +82,37 @@ export function SosHelpModal({ open, onOpenChange, onSubmit }: SosHelpModalProps
         contact2Phone: "",
         message: "I need help. This is an emergency. My current location is: [Location will be added automatically]",
       })
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to save contacts.",
+        variant: "destructive",
+      })
+    } finally {
       setIsSubmitting(false)
-    }, 500)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-red-600">
-            <AlertTriangleIcon className="h-5 w-5" />
-            SOS Emergency Setup
-          </DialogTitle>
-          <DialogDescription>Set up emergency contacts who will receive your SOS messages.</DialogDescription>
-        </DialogHeader>
+        <div className="max-h-[70vh] overflow-y-auto pr-2">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangleIcon className="h-5 w-5" />
+              SOS Emergency Setup
+            </DialogTitle>
+            <DialogDescription>Set up emergency contacts who will receive your SOS messages.</DialogDescription>
+          </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-md text-sm text-red-800 dark:text-red-300 mb-4">
-              In case of immediate danger, please call emergency services directly at 911.
-            </div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-md text-sm text-red-800 dark:text-red-300 mb-4">
+                In case of immediate danger, please call emergency services directly at 911.
+              </div>
 
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium">Emergency Contact 1</h3>
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">Emergency Contact 1</h3>
 
               <FormField
                 control={form.control}
@@ -180,6 +199,7 @@ export function SosHelpModal({ open, onOpenChange, onSubmit }: SosHelpModalProps
             </DialogFooter>
           </form>
         </Form>
+        </div>
       </DialogContent>
     </Dialog>
   )

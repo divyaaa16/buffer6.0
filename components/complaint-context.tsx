@@ -6,6 +6,7 @@ export interface ComplaintHistoryItem {
   description: string;
   status: string;
   date: string; // ISO string
+  location: string; // Added location field
 }
 
 interface ComplaintContextType {

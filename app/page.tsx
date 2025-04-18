@@ -13,6 +13,7 @@ export default function Home() {
         <div id="chat" className="mb-16">
           <ChatInterface />
         </div>
+
       </main>
       <AboutUsSection />
       <Footer />

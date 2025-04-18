@@ -13,6 +13,14 @@ try {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: '/api/lawyers',
+        destination: 'http://localhost:8080/api/lawyers', // Java backend
+      },
+    ];
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },

@@ -6,9 +6,10 @@ import { Loader2 } from "lucide-react"
 interface MessageAreaProps {
   messages: Message[]
   isLoading: boolean
+  onDelete: (id: string) => void
 }
 
-export function MessageArea({ messages, isLoading }: MessageAreaProps) {
+export function MessageArea({ messages, isLoading, onDelete }: MessageAreaProps) {
   return (
     <div className="space-y-4">
       {messages.map((message) => (
